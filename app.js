@@ -126,19 +126,6 @@
     for (var i2 = 0; i2 < revealables.length; i2++) revealObs.observe(revealables[i2]);
   }
 
-  function onceInView(el, cb, threshold) {
-    if (!el) return;
-    if (!('IntersectionObserver' in window)) { cb(); return; }
-    var o = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        o.disconnect();
-        cb();
-      });
-    }, { threshold: threshold || 0.4 });
-    o.observe(el);
-  }
-
   /* ---------- 4. Hero: five riders on one route ---------- */
 
   var RIDERS = [
@@ -305,52 +292,104 @@
     start();
   }
 
-  /* ---------- 5. SOS countdown (runs once, when seen) ---------- */
+  /* ---------- 5. Feature tour: tabs drive the phone screen ---------- */
+
+  var tourNav = document.querySelector('.tour__nav');
+
+  if (tourNav) {
+    var tabs = Array.prototype.slice.call(tourNav.querySelectorAll('[role="tab"]'));
+    var panelOf = function (tab) { return document.getElementById(tab.getAttribute('aria-controls')); };
+    var hideTimer = 0;
+
+    var select = function (tab, focus) {
+      if (tab.getAttribute('aria-selected') === 'true') return;
+
+      tabs.forEach(function (t) {
+        var panel = panelOf(t);
+        var on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        if (!panel) return;
+        if (on) {
+          panel.hidden = false;
+          // Let the browser lay the panel out before it transitions in.
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { panel.classList.add('is-active'); });
+          });
+        } else {
+          panel.classList.remove('is-active');
+        }
+      });
+
+      // Keep the outgoing screen in the flow until its fade finishes.
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () {
+        tabs.forEach(function (t) {
+          var panel = panelOf(t);
+          if (panel && !panel.classList.contains('is-active')) panel.hidden = true;
+        });
+      }, reduce() ? 0 : 300);
+
+      if (focus) tab.focus();
+      onPanelShown(tab.getAttribute('aria-controls'));
+    };
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () { select(tab, false); });
+      tab.addEventListener('keydown', function (e) {
+        var i = tabs.indexOf(tab), next = null;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = tabs[(i + 1) % tabs.length];
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = tabs[(i - 1 + tabs.length) % tabs.length];
+        else if (e.key === 'Home') next = tabs[0];
+        else if (e.key === 'End') next = tabs[tabs.length - 1];
+        if (!next) return;
+        e.preventDefault();
+        select(next, true);
+      });
+    });
+  }
+
+  /* ---------- 6. Screens that come alive when their tab is opened ---------- */
 
   var sos = document.getElementById('sos');
   var sosNum = document.getElementById('sosNum');
-  onceInView(sos, function () {
+  var sosTimer = 0;
+
+  function runSos() {
+    if (!sos || !sosNum) return;
+    clearInterval(sosTimer);
+    sos.classList.remove('is-running');
+    sosNum.textContent = '10';
+    // Reflow so the ring animation restarts rather than continuing.
+    void sos.offsetWidth;
     sos.classList.add('is-running');
     var n = 10;
-    var id = setInterval(function () {
+    sosTimer = setInterval(function () {
       n -= 1;
-      if (sosNum) sosNum.textContent = n;
-      if (n <= 0) clearInterval(id);
+      sosNum.textContent = n;
+      if (n <= 0) clearInterval(sosTimer);
     }, 1000);
-  }, 0.5);
-
-  /* ---------- 6. Trip-code plate settles when it comes into view ---------- */
+  }
 
   var codePlate = document.getElementById('codePlate');
-  onceInView(codePlate, function () {
-    if (reduce()) return;
+
+  function popCode() {
+    if (!codePlate || reduce()) return;
     codePlate.classList.add('is-pop');
     setTimeout(function () { codePlate.classList.remove('is-pop'); }, 420);
-  }, 0.6);
+  }
 
-  /* ---------- 7. Share the code ---------- */
+  var tabbar = document.getElementById('tabbar');
+  var BAR = {
+    'p-plan': 'plan', 'p-invite': 'plan',
+    'p-map': 'ride', 'p-nav': 'ride', 'p-alerts': 'ride', 'p-sos': 'ride', 'p-breaks': 'ride',
+    'p-report': 'reports', 'p-garage': 'you'
+  };
 
-  var shareBtn = document.getElementById('shareBtn');
-  var shareLabel = document.getElementById('shareLabel');
-  if (shareBtn && shareLabel) {
-    var resetId = 0;
-    shareBtn.addEventListener('click', function () {
-      var code = 'BLRGOA';
-      var done = function (text) {
-        shareLabel.textContent = text;
-        clearTimeout(resetId);
-        resetId = setTimeout(function () { shareLabel.textContent = 'Share code'; }, 1800);
-      };
-      if (navigator.share) {
-        navigator.share({ title: 'MotoRiders trip', text: 'Join my ride on MotoRiders — code ' + code })
-          .then(function () { done('Shared'); })
-          .catch(function () { /* user dismissed — say nothing */ });
-      } else if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(function () { done('Copied'); }, function () { done(code); });
-      } else {
-        done(code);
-      }
-    });
+  function onPanelShown(id) {
+    if (tabbar && BAR[id]) tabbar.setAttribute('data-on', BAR[id]);
+    if (id === 'p-sos') runSos();
+    if (id === 'p-invite') popCode();
   }
 
   /* ---------- 8. FAQ accordion ---------- */
