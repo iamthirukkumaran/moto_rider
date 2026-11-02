@@ -529,35 +529,77 @@ b, strong { font-weight: 600; color: var(--text); }
 
 /* ---------- 9. Why ---------- */
 
-.why__list {
-  list-style: none; margin: clamp(32px, 4vw, 52px) 0 0; padding: 0;
-  display: grid; gap: 10px;
+/* ---------- The road: four moments on one line ---------- */
+
+.road {
+  position: relative;
+  margin-top: clamp(44px, 6vw, 76px);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(10px, 1.6vw, 26px);
+  align-items: stretch;
 }
-.why__item {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: 14px;
-  padding: 16px 20px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
+
+/* the road itself: a dashed centre line, drawn left to right */
+.road__line {
+  position: absolute; inset: 50% 0 auto; height: 3px;
+  transform: translateY(-50%) scaleX(0); transform-origin: left center;
+  background: repeating-linear-gradient(90deg,
+    var(--accent) 0 24px, transparent 24px 46px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  transition: transform 1000ms var(--ease-out);
 }
-.why__broken {
-  color: var(--muted);
+/* the light it throws on the dark */
+.road__dash {
+  position: absolute; inset: -26px 0; pointer-events: none;
+  background: radial-gradient(60% 50% at 50% 50%,
+    color-mix(in srgb, var(--accent) 13%, transparent), transparent 72%);
+}
+.reveal.is-in .road__line { transform: translateY(-50%) scaleX(1); }
+
+/* each stop: failure above the line, answer below, marker on it */
+.road__stop {
+  position: relative; z-index: 1;
+  display: grid; grid-template-rows: 1fr auto 1fr;
+  justify-items: center; text-align: center;
+}
+
+.road__bad {
+  align-self: end; margin: 0 0 34px;
+  max-width: 22ch;
+  font-size: 0.95rem; line-height: 1.45; color: var(--muted);
+}
+.road__bad span {
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--red) 70%, transparent);
   text-decoration-thickness: 1.5px;
-  font-size: 0.95rem;
 }
-.why__arrow { color: var(--muted); display: grid; place-items: center; }
-.why__fixed {
-  justify-self: start;
-  display: inline-flex; align-items: center;
-  padding: 5px 12px; border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+
+.road__node {
+  position: relative;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--bg);
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 22px -2px color-mix(in srgb, var(--accent) 75%, transparent);
+  transform: scale(0.4); opacity: 0;
+  transition: transform 420ms var(--ease-out), opacity 300ms var(--ease-out);
+  transition-delay: calc(360ms + var(--j) * 90ms);
+}
+.reveal.is-in .road__node { transform: scale(1); opacity: 1; }
+/* stems linking the marker to the words on either side */
+.road__node::before, .road__node::after {
+  content: ""; position: absolute; left: 50%; width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(var(--border-strong), transparent);
+}
+.road__node::before { bottom: calc(100% + 3px); height: 22px; }
+.road__node::after  { top: calc(100% + 3px); height: 22px; background: linear-gradient(transparent, var(--border-strong)); }
+
+.road__fix {
+  align-self: start; margin: 34px 0 0;
+  max-width: 22ch;
+  font-size: 0.93rem; line-height: 1.45; font-weight: 600;
   color: var(--accent);
-  font-size: 0.86rem; font-weight: 600;
 }
 
 /* ---------- 10. Bento cards ---------- */
@@ -1195,12 +1237,34 @@ b, strong { font-weight: 600; color: var(--text); }
 }
 
 @media (max-width: 760px) {
+  .road { grid-template-columns: 1fr; gap: 0; margin-top: 36px; }
+  .road__line {
+    inset: 8px auto 8px 38px; width: 3px; height: auto;
+    transform: scaleY(0); transform-origin: center top;
+    background: repeating-linear-gradient(180deg,
+      var(--accent) 0 24px, transparent 24px 46px);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+  }
+  .reveal.is-in .road__line { transform: scaleY(1); }
+  .road__dash {
+    inset: 0 -26px; width: auto;
+    background: radial-gradient(50% 60% at 50% 50%,
+      color-mix(in srgb, var(--accent) 13%, transparent), transparent 72%);
+  }
+  .road__stop {
+    grid-template-rows: auto auto; grid-template-columns: 78px minmax(0, 1fr);
+    justify-items: start; text-align: left;
+    padding: 18px 0;
+  }
+  .road__node { grid-area: 1 / 1 / 3 / 2; align-self: center; justify-self: center; }
+  .road__node::before, .road__node::after { display: none; }
+  .road__bad { grid-area: 1 / 2; align-self: end; margin: 0 0 4px; max-width: none; }
+  .road__fix { grid-area: 2 / 2; align-self: start; margin: 0; max-width: none; }
   .tour__tab { padding: 12px 0 12px 18px; }
   .tour__name { font-size: 1rem; gap: 11px; }
   .tour__desc > span { padding-left: 29px; font-size: 0.86rem; }
   .themeline { flex-direction: column; gap: 12px; text-align: center; }
-  .why__item { grid-template-columns: 1fr; gap: 8px; }
-  .why__arrow { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detect__row { grid-template-columns: 1fr auto auto; row-gap: 8px; }
   .detect__bar { grid-column: 1 / -1; order: 3; }
@@ -1230,6 +1294,8 @@ b, strong { font-weight: 600; color: var(--text); }
   .sos.is-running .sos__arc { animation-duration: 10s; }
   .detect__bar i { transition: none; transform: scaleX(1); }
   .screen { transition: opacity 180ms ease, visibility 0s linear 180ms; transform: none; filter: none; }
+  .road__line { transition: none; }
+  .road__node { transform: scale(1); transition: opacity 240ms ease; }
   .screen.is-active { transform: none; filter: none; }
   .tour__tab::before { transition: none; }
   .tour__desc { transition: opacity 180ms ease; }

@@ -170,36 +170,35 @@
       MotoRiders keeps the whole group on one screen, start to finish.
     </p>
 
-    <ul class="why__list" role="list">
-      <li class="why__item reveal" style="--i:0">
-        <span class="why__broken">Wrong turn, 20 km back</span>
-        <span class="why__arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5"/></svg>
-        </span>
-        <span class="why__fixed">Off route · auto-reroute</span>
-      </li>
-      <li class="why__item reveal" style="--i:1">
-        <span class="why__broken">Stopped for fuel, no signal</span>
-        <span class="why__arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5"/></svg>
-        </span>
-        <span class="why__fixed">One tap · whole group hears it</span>
-      </li>
-      <li class="why__item reveal" style="--i:2">
-        <span class="why__broken">Leader 15 minutes ahead</span>
-        <span class="why__arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5"/></svg>
-        </span>
-        <span class="why__fixed">Falling behind · visible to all</span>
-      </li>
-      <li class="why__item reveal" style="--i:3">
-        <span class="why__broken">"How long did that take?"</span>
-        <span class="why__arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5"/></svg>
-        </span>
-        <span class="why__fixed">Trip report · planned vs actual</span>
-      </li>
-    </ul>
+    <!-- One road, four moments it saves you. Above the line is the old way,
+         below it is what the app does instead. -->
+    <div class="road reveal" style="--i:2" role="list" aria-label="Four ways group rides fall apart, and what MotoRiders does instead">
+      <div class="road__line" aria-hidden="true"><span class="road__dash"></span></div>
+
+      <div class="road__stop" role="listitem" style="--j:0">
+        <p class="road__bad"><span>Wrong turn, 20&nbsp;km back</span></p>
+        <span class="road__node" aria-hidden="true"></span>
+        <p class="road__fix">Off route · auto-reroute</p>
+      </div>
+
+      <div class="road__stop" role="listitem" style="--j:1">
+        <p class="road__bad"><span>Stopped for fuel, no signal</span></p>
+        <span class="road__node" aria-hidden="true"></span>
+        <p class="road__fix">One tap · whole group hears it</p>
+      </div>
+
+      <div class="road__stop" role="listitem" style="--j:2">
+        <p class="road__bad"><span>Leader 15 minutes ahead</span></p>
+        <span class="road__node" aria-hidden="true"></span>
+        <p class="road__fix">Falling behind · visible to all</p>
+      </div>
+
+      <div class="road__stop" role="listitem" style="--j:3">
+        <p class="road__bad"><span>“How long did that take?”</span></p>
+        <span class="road__node" aria-hidden="true"></span>
+        <p class="road__fix">Trip report · planned vs actual</p>
+      </div>
+    </div>
   </div>
 </section>
 
