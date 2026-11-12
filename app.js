@@ -1,7 +1,6 @@
 /* ============================================================
    MotoRiders — site behaviour
-   Progressive enhancement: nothing here is required to read
-   the page. JS only adds motion, theming and the accordion.
+   Progressive enhancement: the page reads fine without any of it.
    ============================================================ */
 (function () {
   'use strict';
@@ -20,34 +19,49 @@
     return n;
   }
 
-  /* ---------- 1. Theme (light / auto / dark) ---------- */
+  function onceInView(el, cb, threshold) {
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) { cb(); return; }
+    var o = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        o.disconnect();
+        cb();
+      });
+    }, { threshold: threshold || 0.4 });
+    o.observe(el);
+  }
+
+  /* ---------- 1. Theme ---------- */
 
   var STORE = 'motoriders-theme';
-  var seg = document.getElementById('seg');
   var themeBtn = document.getElementById('themeBtn');
-  var SEG_INDEX = { light: 0, auto: 1, dark: 2 };
   var theme = 'auto';
 
   try { theme = localStorage.getItem(STORE) || 'auto'; } catch (e) { /* private mode */ }
-  if (!SEG_INDEX.hasOwnProperty(theme)) theme = 'auto';
+  if (theme !== 'light' && theme !== 'dark') theme = 'auto';
 
   function resolved() {
     return theme === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : theme;
   }
 
   function syncBrowserChrome() {
-    // When the user overrides the system theme, the media-based theme-color
-    // metas no longer describe the page — replace them with a single value.
-    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    // Once the user overrides the system theme the media-based theme-color
+    // metas no longer describe the page, so replace them with one value.
+    var metas = document.querySelectorAll('meta[name="theme-color"][media]');
     var i;
     if (theme === 'auto') {
-      for (i = 0; i < metas.length; i++) metas[i].removeAttribute('data-off');
+      for (i = 0; i < metas.length; i++) {
+        metas[i].setAttribute('content', metas[i].getAttribute('data-c') || metas[i].getAttribute('content'));
+      }
+      var old = document.querySelector('meta[name="theme-color"][data-dyn]');
+      if (old) old.remove();
       return;
     }
     for (i = 0; i < metas.length; i++) {
-      if (metas[i].hasAttribute('media')) metas[i].setAttribute('content', '');
+      if (!metas[i].hasAttribute('data-c')) metas[i].setAttribute('data-c', metas[i].getAttribute('content'));
+      metas[i].setAttribute('content', '');
     }
-    var bg = getComputedStyle(document.body).backgroundColor;
     var dyn = document.querySelector('meta[name="theme-color"][data-dyn]');
     if (!dyn) {
       dyn = document.createElement('meta');
@@ -55,21 +69,13 @@
       dyn.setAttribute('data-dyn', '');
       document.head.appendChild(dyn);
     }
-    dyn.setAttribute('content', bg);
+    dyn.setAttribute('content', getComputedStyle(document.body).backgroundColor);
   }
 
   function applyTheme(next, persist) {
     theme = next;
     if (theme === 'auto') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', theme);
-
-    if (seg) {
-      seg.style.setProperty('--seg', SEG_INDEX[theme]);
-      var btns = seg.querySelectorAll('button[data-theme-set]');
-      for (var i = 0; i < btns.length; i++) {
-        btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-theme-set') === theme));
-      }
-    }
     if (themeBtn) {
       themeBtn.setAttribute('aria-label',
         resolved() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
@@ -80,12 +86,6 @@
 
   applyTheme(theme, false);
 
-  if (seg) {
-    seg.addEventListener('click', function (e) {
-      var b = e.target.closest('button[data-theme-set]');
-      if (b) applyTheme(b.getAttribute('data-theme-set'), true);
-    });
-  }
   if (themeBtn) {
     themeBtn.addEventListener('click', function () {
       applyTheme(resolved() === 'dark' ? 'light' : 'dark', true);
@@ -111,7 +111,6 @@
   /* ---------- 3. Scroll reveal (once, staggered) ---------- */
 
   var revealables = document.querySelectorAll('.reveal');
-
   if (!('IntersectionObserver' in window)) {
     for (var r = 0; r < revealables.length; r++) revealables[r].classList.add('is-in');
   } else {
@@ -121,8 +120,7 @@
         en.target.classList.add('is-in');
         revealObs.unobserve(en.target);
       });
-    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.12 });
-
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
     for (var i2 = 0; i2 < revealables.length; i2++) revealObs.observe(revealables[i2]);
   }
 
@@ -292,167 +290,161 @@
     start();
   }
 
-  /* ---------- 5. Feature tour: tabs drive the phone screen ---------- */
+  /* ---------- 5. The invite QR ---------- */
 
-  var tourNav = document.querySelector('.tour__nav');
+  // Decorative, not a real payload — a plausible module grid so the phone
+  // screen reads as an invite rather than a grey square.
+  var qrBox = document.getElementById('qr');
+  if (qrBox) {
+    var N = 25, seed = 0x5bd1;
+    var rand = function () {
+      // xorshift: a fixed pattern, so the code never reflows between loads
+      seed ^= seed << 7; seed ^= seed >>> 9; seed ^= seed << 8;
+      return (seed >>> 0) / 4294967296;
+    };
+    var finder = function (x, y, cx, cy) {
+      var dx = Math.abs(x - cx), dy = Math.abs(y - cy), d = Math.max(dx, dy);
+      if (d > 3) return null;
+      return d === 1 ? 0 : 1;          // ring, gap, core
+    };
+    var d = '';
+    for (var y = 0; y < N; y++) {
+      for (var x = 0; x < N; x++) {
+        var f = finder(x, y, 3, 3);
+        if (f === null) f = finder(x, y, N - 4, 3);
+        if (f === null) f = finder(x, y, 3, N - 4);
+        var on = f === null ? rand() > 0.52 : f === 1;
+        if (on) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+      }
+    }
+    var svg = svgEl('svg', { viewBox: '-1 -1 ' + (N + 2) + ' ' + (N + 2), width: 168, height: 168 });
+    svg.appendChild(svgEl('path', { d: d, fill: '#0A0A0A' }));
+    qrBox.appendChild(svg);
+  }
 
-  if (tourNav) {
-    var tabs = Array.prototype.slice.call(tourNav.querySelectorAll('[role="tab"]'));
-    var panelOf = function (tab) { return document.getElementById(tab.getAttribute('aria-controls')); };
-    var hideTimer = 0;
+  /* ---------- 6. Create / Join ---------- */
 
-    var select = function (tab, focus) {
-      if (tab.getAttribute('aria-selected') === 'true') return;
+  var sw = document.getElementById('switch');
+  if (sw) {
+    var tabs = Array.prototype.slice.call(sw.querySelectorAll('[role="tab"]'));
+    var panes = Array.prototype.slice.call(document.querySelectorAll('[data-pane]'));
+
+    var show = function (name, focus) {
+      sw.style.setProperty('--on', name === 'join' ? 1 : 0);
 
       tabs.forEach(function (t) {
-        var panel = panelOf(t);
-        var on = t === tab;
+        var on = t.id === 'tab-' + name;
         t.setAttribute('aria-selected', String(on));
         t.tabIndex = on ? 0 : -1;
-        if (!panel) return;
+        if (on && focus) t.focus();
+      });
+
+      panes.forEach(function (p) {
+        var on = p.getAttribute('data-pane') === name;
         if (on) {
-          panel.hidden = false;
-          // Let the browser lay the panel out before it transitions in.
-          requestAnimationFrame(function () {
-            requestAnimationFrame(function () { panel.classList.add('is-active'); });
-          });
+          p.hidden = false;
+          // It was display:none, so the reveal observer never fired on it.
+          p.classList.add('is-in');
+          // Let the element lay out before the class drives the transition.
+          requestAnimationFrame(function () { p.classList.add('is-on'); });
         } else {
-          panel.classList.remove('is-active');
+          p.classList.remove('is-on');
+          if (p.classList.contains('scr')) {
+            // The screen cross-fades; the list in the copy can go at once.
+            setTimeout(function () { if (!p.classList.contains('is-on')) p.hidden = true; }, reduce() ? 180 : 280);
+          } else {
+            p.hidden = true;
+          }
         }
       });
-
-      // Keep the outgoing screen in the flow until its fade finishes.
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(function () {
-        tabs.forEach(function (t) {
-          var panel = panelOf(t);
-          if (panel && !panel.classList.contains('is-active')) panel.hidden = true;
-        });
-      }, reduce() ? 0 : 300);
-
-      if (focus) tab.focus();
-      onPanelShown(tab.getAttribute('aria-controls'));
     };
 
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () { select(tab, false); });
-      tab.addEventListener('keydown', function (e) {
-        var i = tabs.indexOf(tab), next = null;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = tabs[(i + 1) % tabs.length];
-        else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = tabs[(i - 1 + tabs.length) % tabs.length];
-        else if (e.key === 'Home') next = tabs[0];
-        else if (e.key === 'End') next = tabs[tabs.length - 1];
-        if (!next) return;
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { show(t.id.replace('tab-', ''), false); });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key, i = tabs.indexOf(t), n = tabs.length;
+        if (k !== 'ArrowRight' && k !== 'ArrowLeft' && k !== 'Home' && k !== 'End') return;
         e.preventDefault();
-        select(next, true);
+        var next = k === 'ArrowRight' ? (i + 1) % n
+                 : k === 'ArrowLeft'  ? (i - 1 + n) % n
+                 : k === 'Home'       ? 0 : n - 1;
+        show(tabs[next].id.replace('tab-', ''), true);
       });
     });
+
+    show('create', false);
   }
 
-  /* ---------- 6. Screens that come alive when their tab is opened ---------- */
+  /* ---------- 7. The odometer ---------- */
 
-  var sos = document.getElementById('sos');
-  var sosNum = document.getElementById('sosNum');
-  var sosTimer = 0;
+  var ODO = [
+    { el: document.getElementById('odoNum'),   to: 12480 },
+    { el: document.getElementById('odoRides'), to: 128 },
+    { el: document.getElementById('odoGroup'), to: 7360 },
+    { el: document.getElementById('odoSolo'),  to: 5120 }
+  ];
+  var fmt = function (n) { return n.toLocaleString('en-IN'); };
 
-  function runSos() {
-    if (!sos || !sosNum) return;
-    clearInterval(sosTimer);
-    sos.classList.remove('is-running');
-    sosNum.textContent = '10';
-    // Reflow so the ring animation restarts rather than continuing.
-    void sos.offsetWidth;
-    sos.classList.add('is-running');
-    var n = 10;
-    sosTimer = setInterval(function () {
-      n -= 1;
-      sosNum.textContent = n;
-      if (n <= 0) clearInterval(sosTimer);
-    }, 1000);
-  }
-
-  var codePlate = document.getElementById('codePlate');
-
-  function popCode() {
-    if (!codePlate || reduce()) return;
-    codePlate.classList.add('is-pop');
-    setTimeout(function () { codePlate.classList.remove('is-pop'); }, 420);
-  }
-
-  var tabbar = document.getElementById('tabbar');
-  var BAR = {
-    'p-plan': 'plan', 'p-invite': 'plan',
-    'p-map': 'ride', 'p-nav': 'ride', 'p-alerts': 'ride', 'p-sos': 'ride', 'p-breaks': 'ride',
-    'p-report': 'reports', 'p-garage': 'you'
-  };
-
-  function onPanelShown(id) {
-    if (tabbar && BAR[id]) tabbar.setAttribute('data-on', BAR[id]);
-    if (id === 'p-sos') runSos();
-    if (id === 'p-invite') popCode();
-  }
-
-  /* ---------- 8. FAQ accordion ---------- */
-
-  var acc = document.getElementById('acc');
-  if (acc) {
-    acc.addEventListener('click', function (e) {
-      var btn = e.target.closest('.acc__btn');
-      if (!btn) return;
-      var item = btn.closest('.acc__item');
-      var panel = document.getElementById(btn.getAttribute('aria-controls'));
-      if (!item || !panel) return;
-
-      var open = item.classList.contains('is-open');
-
-      if (open) {
-        item.classList.remove('is-open');
-        btn.setAttribute('aria-expanded', 'false');
-        var hide = function () { if (!item.classList.contains('is-open')) panel.hidden = true; };
-        if (reduce()) hide(); else setTimeout(hide, 300);
-      } else {
-        panel.hidden = false;
-        // Let the browser lay the panel out before transitioning its rows.
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            item.classList.add('is-open');
-            btn.setAttribute('aria-expanded', 'true');
-          });
-        });
-      }
+  onceInView(document.getElementById('odo'), function () {
+    ODO.forEach(function (o, idx) {
+      if (!o.el) return;
+      if (reduce()) { o.el.textContent = fmt(o.to); return; }
+      var dur = 1400, started = 0;
+      setTimeout(function () {
+        var step = function (now) {
+          if (!started) started = now;
+          var t = Math.min((now - started) / dur, 1);
+          var eased = 1 - Math.pow(1 - t, 4);   // fast, then settles like a trip meter
+          o.el.textContent = fmt(Math.round(o.to * eased));
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }, idx * 80);
     });
-  }
+  }, 0.35);
 
-  /* ---------- 9. Device parallax — decorative, pointer-only ---------- */
+  /* ---------- 8. SOS hold ---------- */
 
-  var device = document.getElementById('heroDevice');
-  if (device && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    var hero = document.querySelector('.hero');
-    var tx = 0, ty = 0, cx = 0, cy = 0, pr = 0;
+  var sosArc = document.getElementById('sosArc');
+  var sosNum = document.getElementById('sosNum');
 
-    var render = function () {
-      // Spring-ish easing toward the pointer so the tilt has momentum
-      // instead of snapping, which reads as artificial.
-      cx += (tx - cx) * 0.08;
-      cy += (ty - cy) * 0.08;
-      device.style.transform =
-        'perspective(1400px) rotateY(' + (-9 + cx * 4).toFixed(2) + 'deg) ' +
-        'rotateX(' + (2.5 - cy * 3).toFixed(2) + 'deg) translateZ(0)';
-      if (Math.abs(tx - cx) > 0.001 || Math.abs(ty - cy) > 0.001) {
-        pr = requestAnimationFrame(render);
-      } else { pr = 0; }
+  if (sosArc && sosNum) {
+    var DASH = 327, SECS = 3;
+
+    var runSos = function () {
+      if (reduce()) {
+        sosArc.style.transition = 'none';
+        sosArc.style.strokeDashoffset = '0';
+        sosNum.textContent = '0';
+        return;
+      }
+      sosArc.style.transition = 'none';
+      sosArc.style.strokeDashoffset = DASH;
+      sosNum.textContent = SECS;
+      // Reflow so the reset is painted before the fill starts.
+      void sosArc.getBoundingClientRect();
+      sosArc.style.transition = 'stroke-dashoffset ' + (SECS * 1000) + 'ms linear';
+      sosArc.style.strokeDashoffset = '0';
+
+      var left = SECS;
+      var iv = setInterval(function () {
+        left -= 1;
+        sosNum.textContent = Math.max(left, 0);
+        if (left <= 0) clearInterval(iv);
+      }, 1000);
     };
 
-    hero.addEventListener('pointermove', function (e) {
-      if (reduce() || e.pointerType !== 'mouse') return;
-      var b = hero.getBoundingClientRect();
-      tx = (e.clientX - b.left) / b.width * 2 - 1;
-      ty = (e.clientY - b.top) / b.height * 2 - 1;
-      if (!pr) pr = requestAnimationFrame(render);
-    });
-    hero.addEventListener('pointerleave', function () {
-      tx = 0; ty = 0;
-      if (!pr) pr = requestAnimationFrame(render);
-    });
+    // Runs each time the card comes back into view, not on a loop.
+    if ('IntersectionObserver' in window) {
+      var armed = true;
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && armed) { armed = false; runSos(); }
+          else if (!en.isIntersecting) { armed = true; }
+        });
+      }, { threshold: 0.5 }).observe(document.getElementById('sos'));
+    } else {
+      runSos();
+    }
   }
 })();
